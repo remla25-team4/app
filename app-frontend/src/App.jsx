@@ -1,10 +1,52 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import InputReview from './Components/InputReview'
+import Reviews from './Components/Reviews'
+import reviewService from './Services/reviews'
 
 function App() {
+  const [reviewText, setReviewText] = useState('')
+  const [reviews, setReviews] = useState([])
+  
+  useEffect(()=>{
+    reviewService
+    .getAll()
+    .then(allReviews =>{
+      setReviews(allReviews)
+    })
+  },[])
+
+  const handleReviewText = (event) => {
+    setReviewText(event.target.value)
+    console.log(reviewText)
+  }
+
+  const addReview = (event) => {
+    event.preventDefault()
+
+    if(reviewText != ''){
+      const newReview = {
+        text: reviewText,
+        sentiment: ""
+      }
+
+      reviewService
+      .create(newReview)
+      .then(createdReview => {
+        setReviews(reviews.concat(createdReview))
+        setReviewText('')
+      })
+    }
+  }
 
   return (
     <>
-      <h1>Hello World!</h1>
+      <h1>Leave a Review</h1>
+      <InputReview
+      onSubmit={addReview}
+      reviewText={reviewText} 
+      changeReviewText={handleReviewText}/>
+
+      <Reviews reviews={reviews}/>
     </>
   )
 }
