@@ -19,9 +19,6 @@ app.use(cors())
 app.use(express.json())
 app.use(express.static('../app-frontend/build'));
 
-app.get('*', (req, res) => {
-  res.sendFile(path.resolve(__dirname, '../app-frontend/build', 'index.html'));
-});
 
 app.get('/api/reviews', (request, response) => {
     response.json(reviews)
@@ -30,7 +27,7 @@ app.get('/api/reviews', (request, response) => {
 app.delete('/api/reviews/:id', (request, response) => {
     const id = request.params.id
     reviews = reviews.filter(p => p.id !== id)
-
+    
     response.status(204).end()
 })
 
@@ -59,6 +56,10 @@ app.post('/api/reviews', async (request, response) => {
         console.error('Error connecting to model service:', error.message)
     }
 })
+
+app.get('*', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../app-frontend/build', 'index.html'));
+});
 
 const PORT = 3001
 app.listen(PORT, () => {
