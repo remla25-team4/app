@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import InputReview from './Components/InputReview'
 import Reviews from './Components/Reviews'
 import reviewService from './Services/reviews'
+import './app.css'
 
 function App() {
   const [reviewText, setReviewText] = useState('')
@@ -39,7 +40,7 @@ function App() {
   }
 
   return (
-    <>
+    <div class="app-container">
       <h1>Leave a Review</h1>
       <InputReview
       onSubmit={addReview}
@@ -47,7 +48,7 @@ function App() {
       changeReviewText={handleReviewText}/>
 
       <Reviews reviews={reviews}/>
-    </>
+    </div>
   )
 }
 

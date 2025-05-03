@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express')
 const axios = require('axios')
 const cors = require('cors')
+const path = require('path');
 const app = express()
 
 const MODEL_SERVICE_URL = process.env.MODEL_SERVICE_URL
@@ -16,6 +17,11 @@ let reviews = [
 
 app.use(cors())
 app.use(express.json())
+app.use(express.static('../app-frontend/build'));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../app-frontend/build', 'index.html'));
+});
 
 app.get('/api/reviews', (request, response) => {
     response.json(reviews)
