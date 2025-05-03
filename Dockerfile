@@ -11,7 +11,8 @@ WORKDIR /app/app-frontend
 COPY app-frontend/package*.json ./
 RUN npm install
 COPY app-frontend/ ./
-RUN npm run build
+RUN npm run build &&\
+        cp -r dist ../app-service
 
 #WORKDIR /app/lib-version
 #COPY lib-version/ ./
