@@ -12,7 +12,7 @@ const Reviews = (props) => {
                     {props.reviews.map(review =>
                         <tr key={review.id}>
                             <td>{review.text}</td>
-                            <td></td>
+                            <td>{review.sentiment}</td>
                         </tr>
                     )}
                 </tbody>

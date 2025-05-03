@@ -1,12 +1,16 @@
+require('dotenv').config();
 const express = require('express')
+const axios = require('axios')
 const cors = require('cors')
 const app = express()
+
+const MODEL_SERVICE_URL = process.env.MODEL_SERVICE_URL
 
 let reviews = [
     {
         "id": 1,
         "text": "What a lovely restaurant!",
-        "sentiment": ""
+        "sentiment": "positive"
     }
 ]
 
@@ -28,16 +32,26 @@ const generateId = () => {
     return Math.floor(Math.random() * 5000) + 1
 }
 
-app.post('/api/reviews', (request, response) => {
-    const body = request.body
-
-    const newReview = {
-        id: generateId(),
-        text: body.text
+app.post('/api/reviews', async (request, response) => {
+    try{
+        const body = request.body
+        
+        const modelResponse = await axios.post(`${MODEL_SERVICE_URL}/predict`, {
+            text: body.text
+        })
+        
+        const newReview = {
+            id: generateId(),
+            text: body.text,
+            sentiment: modelResponse.data.prediction
+        }
+        
+        reviews = reviews.concat(newReview)
+        response.json(newReview)
     }
-
-    reviews = reviews.concat(newReview)
-    response.json(newReview)
+    catch (error) {
+        console.error('Error connecting to model service:', error.message)
+    }
 })
 
 const PORT = 3001
