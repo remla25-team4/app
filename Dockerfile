@@ -13,8 +13,8 @@ RUN npm install
 COPY app-frontend/ ./
 RUN npm run build
 
-WORKDIR /app/lib-version
-COPY lib-version/ ./
+#WORKDIR /app/lib-version
+#COPY lib-version/ ./
 
 ENV MODEL_SERVICE_URL=http://model-service:8080
 
