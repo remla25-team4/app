@@ -27,13 +27,35 @@ jobs:
         echo "version_major=$MAJOR" >> $GITHUB_ENV
         echo "version_minor=$MINOR" >> $GITHUB_ENV
         echo "version_patch=$PATCH" >> $GITHUB_ENV
-    - run: |
-        IMG="ghcr.io/${{github.repository}}"
-        IMG=${IMG@L} # lower case the image
+    - name: Build and push Docker image
+      run: |
+        IMG_BASE="ghcr.io/${{ github.repository,, }}" # github.repository,, for bash 4+ lowercase
+        
+        echo "Building Docker image with base: ${IMG_BASE}, Version: ${{ env.VERSION_NUMBER }}"
+        
         docker build \
-        --tag $IMG:${{ env.version }} \
-        --tag $IMG:${{ env.version_major }}.${{ env.version_minor }}.latest \
-        --tag $IMG:${{ env.version_major }}.latest \
-        --tag $IMG:latest \
+        --tag "${IMG_BASE}:${{ env.VERSION_NUMBER }}" \
+        --tag "${IMG_BASE}:${{ env.VERSION_MAJOR }}.${{ env.VERSION_MINOR }}.latest" \
+        --tag "${IMG_BASE}:${{ env.VERSION_MAJOR }}.latest" \
+        --tag "${IMG_BASE}:latest" \
         .
-        docker push --all-tags $IMG
+        
+        echo "Pushing Docker images to ${IMG_BASE}..."
+        docker push --all-tags "${IMG_BASE}"
+        echo "Docker images pushed successfully."
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.TAG_NAME }}
+        name: Release ${{ env.TAG_NAME }}
+        body: |
+          Automated release for version **${{ env.TAG_NAME }}**.
+          
+          Docker images have been pushed to `ghcr.io/${{ github.repository,, }}` with the following tags:
+          - `${{ env.VERSION_NUMBER }}`
+          - `${{ env.VERSION_MAJOR }}.${{ env.VERSION_MINOR }}.latest`
+          - `${{ env.VERSION_MAJOR }}.latest`
+          - `latest`
+        draft: false
+        prerelease: false
