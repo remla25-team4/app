@@ -18,7 +18,6 @@ function App() {
 
   const handleReviewText = (event) => {
     setReviewText(event.target.value)
-    console.log(reviewText)
   }
 
   const addReview = (event) => {
