@@ -119,7 +119,7 @@ jobs:
         body: |
           Automated release for version ${{ env.VERSION_TAG_NAME }}.
 
-          Docker images have been pushed to `ghcr.io/${{ env.IMG_LOWERCASE }}` (replace with actual lowercase repo) with tags:
+          Docker images have been pushed to `ghcr.io/${{github.repository}}` with tags:
           - `${{ env.version }}`
           - `${{ env.version_major }}.${{ env.version_minor }}.latest`
           - `${{ env.version_major }}.latest`
