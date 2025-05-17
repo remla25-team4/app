@@ -1,21 +1,39 @@
+
 name: Release
+
 on:
   push:
+    branches: [main]
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
 jobs:
   build:
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
+      contents: write
       packages: write
       id-token: write
+
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
     - uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ github.token }}
+
     - name: Parse version info from tag
       run: |
         # GITHUB_REF is like refs/tags/v2.3.5, so strip the first 11 chars
@@ -27,35 +45,87 @@ jobs:
         echo "version_major=$MAJOR" >> $GITHUB_ENV
         echo "version_minor=$MINOR" >> $GITHUB_ENV
         echo "version_patch=$PATCH" >> $GITHUB_ENV
+
+    - name: Update version in __init__.py and push to main
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        VERSION_TO_SET="${{ env.version }}" # Version derived from the tag
+        echo "Target version for main branch's app-service/__init__.py: $VERSION_TO_SET"
+
+        if [ -z "$VERSION_TO_SET" ]; then
+          echo "Error: Version from tag is not set. Skipping update to main."
+          exit 1
+        fi
+
+        echo "Configuring Git user..."
+        git config --global user.name 'GitHub Actions Bot'
+        git config --global user.email 'actions@github.com'
+        # Ensure GITHUB_TOKEN has push permissions (contents: write in job permissions)
+
+        echo "Fetching latest main branch from remote..."
+        git fetch origin main
+
+        echo "Checking out main branch (or creating it based on remote)..."
+        # Create a local main branch that tracks origin/main, or reset it if it exists
+        # This ensures we are working with the latest state of the main branch
+        git checkout -B main origin/main
+
+        # Now, on the main branch, update the __init__.py file
+        if [ ! -f app-service/__init__.py ]; then
+          echo "Error: app-service/__init__.py not found on the main branch."
+          # Consider if you want to create the file if it's missing, or just fail.
+          # For example, to create it:
+          # echo "__version__ = \"$VERSION_TO_SET\"" > app-service/__init__.py
+          # echo "Created app-service/__init__.py on main branch with version $VERSION_TO_SET."
+          exit 1 # Current behavior: exit if not found
+        fi
+
+        CURRENT_VERSION_IN_MAIN_INIT_PY=$(grep -oP '__version__ = "\K[^"]+' app-service/__init__.py || echo "not_found")
+        echo "Current version in app-service/__init__.py on main branch: $CURRENT_VERSION_IN_MAIN_INIT_PY"
+
+        if [ "$CURRENT_VERSION_IN_MAIN_INIT_PY" == "$VERSION_TO_SET" ]; then
+          echo "app-service/__init__.py on main branch is already at version $VERSION_TO_SET. No changes needed."
+        else
+          echo "Updating app-service/__init__.py on main branch to version $VERSION_TO_SET..."
+          sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION_TO_SET\"/" app-service/__init__.py
+          echo "Updated app-service/__init__.py content on main branch:"
+          cat app-service/__init__.py
+
+          git add app-service/__init__.py
+          git commit -m "chore: Update version in app-service to $VERSION_TO_SET (triggered by tag ${{ github.ref_name }}) [skip ci]"
+
+          echo "Pushing updated version file to remote main branch..."
+          git push origin main
+          echo "Successfully pushed version update to main branch."
+        fi
+
     - name: Build and push Docker image
       run: |
-        IMG_BASE="ghcr.io/${{ github.repository,, }}" # github.repository,, for bash 4+ lowercase
-        
-        echo "Building Docker image with base: ${IMG_BASE}, Version: ${{ env.VERSION_NUMBER }}"
-        
+        IMG="ghcr.io/${{github.repository}}"
+        IMG=${IMG@L} # lower case the image
         docker build \
-        --tag "${IMG_BASE}:${{ env.VERSION_NUMBER }}" \
-        --tag "${IMG_BASE}:${{ env.VERSION_MAJOR }}.${{ env.VERSION_MINOR }}.latest" \
-        --tag "${IMG_BASE}:${{ env.VERSION_MAJOR }}.latest" \
-        --tag "${IMG_BASE}:latest" \
-        .
-        
-        echo "Pushing Docker images to ${IMG_BASE}..."
-        docker push --all-tags "${IMG_BASE}"
-        echo "Docker images pushed successfully."
+          --tag $IMG:${{ env.version }} \
+          --tag $IMG:${{ env.version_major }}.${{ env.version_minor }}.latest \
+          --tag $IMG:${{ env.version_major }}.latest \
+          --tag $IMG:latest \
+          .
+        docker push --all-tags $IMG 
 
     - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ env.TAG_NAME }}
-        name: Release ${{ env.TAG_NAME }}
+        tag_name: ${{ env.VERSION_TAG_NAME }}
+        name: Release ${{ env.VERSION_TAG_NAME }}
         body: |
-          Automated release for version **${{ env.TAG_NAME }}**.
-          
-          Docker images have been pushed to `ghcr.io/${{ github.repository,, }}` with the following tags:
-          - `${{ env.VERSION_NUMBER }}`
-          - `${{ env.VERSION_MAJOR }}.${{ env.VERSION_MINOR }}.latest`
-          - `${{ env.VERSION_MAJOR }}.latest`
+          Automated release for version ${{ env.VERSION_TAG_NAME }}.
+
+          Docker images have been pushed to `ghcr.io/${{ env.IMG_LOWERCASE }}` (replace with actual lowercase repo) with tags:
+          - `${{ env.version }}`
+          - `${{ env.version_major }}.${{ env.version_minor }}.latest`
+          - `${{ env.version_major }}.latest`
           - `latest`
+
+          *Note: The version in `app-service/__init__.py` on the `main` branch has been updated to `${{ env.version }}` by this workflow.*
         draft: false
         prerelease: false

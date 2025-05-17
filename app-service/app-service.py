@@ -3,6 +3,12 @@ import os
 import requests
 from dotenv import load_dotenv
 import random
+from lib_version import *
+import importlib.util
+init_path = os.path.join(os.path.dirname(__file__), "__init__.py")
+spec = importlib.util.spec_from_file_location("init_module", init_path)
+init_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(init_module)
 
 load_dotenv()
 
@@ -10,6 +16,9 @@ app = Flask(__name__, static_folder='../app-frontend/dist')
 
 PORT = int(os.environ.get("PORT", 3001))
 MODEL_SERVICE_URL = os.environ.get("MODEL_SERVICE_URL", "http://host.docker.internal:8080")
+vu = VersionUtil()
+LIBVERSION = vu.get_package_version()
+
 reviews = [
     {
         "id": 1,
@@ -17,6 +26,7 @@ reviews = [
         "sentiment": "positive"
     }
 ]
+
 def generate_id():
     return random.randint(1, 5000)
 
@@ -31,6 +41,18 @@ def index(path):
 @app.route('/api/reviews', methods=["GET"])
 def get_reviews():
     return jsonify(reviews)
+
+@app.route('/api/versions', methods=["GET"])
+def get_versions():
+    modelVersion = requests.get(f"{MODEL_SERVICE_URL}/version")
+    versions = (
+        {
+            "modelVersion": modelVersion.json()["version"],
+            "appVersion": init_module.version,
+            "libVersion": LIBVERSION
+        }
+    )
+    return jsonify(versions)
 
 @app.route('/api/reviews', methods=["POST"])
 def add_review():
