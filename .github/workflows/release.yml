@@ -18,6 +18,12 @@ jobs:
       with:
         fetch-depth: 0 # Fetch all history for version bumping on main
 
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -117,21 +123,23 @@ jobs:
           echo "Successfully pushed version update to main branch."
         fi
 
-    - name: Build and push Docker image
+    - name: Build and push Docker image (multi-arch)
       # To build multi-arch images, this 'docker build' command needs to be replaced with 'docker buildx build --platform ...'
       run: |
-        IMG_BASE="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}"
-        IMG_BASE_LOWER=${IMG_BASE@L} # lower case the image base name
+        IMAGE_NAME="${{ github.event.repository.name }}"
+        IMG_BASE_LOWER="ghcr.io/${{ github.repository_owner }}/${IMAGE_NAME,,}"
 
-        echo "Building and pushing Docker image: $IMG_BASE_LOWER"
+        echo "Building and pushing multi-architecture Docker image: $IMG_BASE_LOWER"
+        echo "Target platforms: linux/amd64,linux/arm64"
         echo "Tagging with: ${{ env.version }}, ${{ env.version_major }}.${{ env.version_minor }}.latest, ${{ env.version_major }}.latest, latest"
 
-        docker buildx build --platform linux/amd64,linux/arm64\
+        docker buildx build --platform linux/amd64,linux/arm64 \
           -t $IMG_BASE_LOWER:${{ env.version }} \
           -t $IMG_BASE_LOWER:${{ env.version_major }}.${{ env.version_minor }}.latest \
           -t $IMG_BASE_LOWER:${{ env.version_major }}.latest \
           -t $IMG_BASE_LOWER:latest \
-          -- push .
+          --push \
+          .
 
     - name: Create GitHub Release
       if: startsWith(github.ref, 'refs/tags/')
