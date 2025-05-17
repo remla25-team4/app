@@ -48,7 +48,7 @@ def get_versions():
     versions = (
         {
             "modelVersion": modelVersion.json()["version"],
-            "appVersion": init_module.version,
+            "appVersion": init_module.__version__,
             "libVersion": LIBVERSION
         }
     )
