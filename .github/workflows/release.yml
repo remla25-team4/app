@@ -1,9 +1,8 @@
-
 name: Release
 
 on:
   push:
-    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"] # Trigger on tags like v1.0.0, v0.2.3, etc.
 
 jobs:
   build:
@@ -14,7 +13,10 @@ jobs:
       id-token: write
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetch all history for version bumping on main
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -25,9 +27,15 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r app-service/requirements.txt
+        # Assuming requirements are for the app-service being released
+        if [ -f app-service/requirements.txt ]; then
+          pip install -r app-service/requirements.txt
+        else
+          echo "Warning: app-service/requirements.txt not found. Skipping pip install."
+        fi
 
-    - uses: docker/login-action@v3
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
@@ -35,8 +43,10 @@ jobs:
 
     - name: Parse version info from tag
       run: |
-        # GITHUB_REF is like refs/tags/v2.3.5, so strip the first 11 chars
-        VERSION=${GITHUB_REF:11}
+        # GITHUB_REF_NAME is the tag itself, e.g., v2.3.5
+        # Strip 'v' prefix if present for semantic versioning parts
+        RAW_VERSION=${{ github.ref_name }}
+        VERSION=${RAW_VERSION#v} # Removes 'v' prefix if it exists
         MAJOR=$(echo "$VERSION" | cut -d . -f 1)
         MINOR=$(echo "$VERSION" | cut -d . -f 2)
         PATCH=$(echo "$VERSION" | cut -d . -f 3)
@@ -44,11 +54,12 @@ jobs:
         echo "version_major=$MAJOR" >> $GITHUB_ENV
         echo "version_minor=$MINOR" >> $GITHUB_ENV
         echo "version_patch=$PATCH" >> $GITHUB_ENV
+        echo "Parsed version: $VERSION (Major: $MAJOR, Minor: $MINOR, Patch: $PATCH)"
 
     - name: Update version in __init__.py and push to main
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        VERSION_TO_SET="${{ env.version }}" # Version derived from the tag
+        VERSION_TO_SET="${{ env.version }}" # Version derived from the tag (without 'v' prefix)
         echo "Target version for main branch's app-service/__init__.py: $VERSION_TO_SET"
 
         if [ -z "$VERSION_TO_SET" ]; then
@@ -58,71 +69,86 @@ jobs:
 
         echo "Configuring Git user..."
         git config --global user.name 'GitHub Actions Bot'
-        git config --global user.email 'actions@github.com'
-        # Ensure GITHUB_TOKEN has push permissions (contents: write in job permissions)
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
         echo "Fetching latest main branch from remote..."
         git fetch origin main
 
-        echo "Checking out main branch (or creating it based on remote)..."
-        # Create a local main branch that tracks origin/main, or reset it if it exists
-        # This ensures we are working with the latest state of the main branch
+        echo "Checking out main branch..."
         git checkout -B main origin/main
 
-        # Now, on the main branch, update the __init__.py file
-        if [ ! -f app-service/__init__.py ]; then
-          echo "Error: app-service/__init__.py not found on the main branch."
-          # Consider if you want to create the file if it's missing, or just fail.
-          # For example, to create it:
-          # echo "__version__ = \"$VERSION_TO_SET\"" > app-service/__init__.py
-          # echo "Created app-service/__init__.py on main branch with version $VERSION_TO_SET."
-          exit 1 # Current behavior: exit if not found
+        INIT_PY_PATH="app-service/__init__.py" # Define path to __init__.py
+
+        if [ ! -f "$INIT_PY_PATH" ]; then
+          echo "Warning: $INIT_PY_PATH not found on the main branch. Creating it."
+          # Create the directory if it doesn't exist
+          mkdir -p "$(dirname "$INIT_PY_PATH")"
+          echo "__version__ = \"$VERSION_TO_SET\"" > "$INIT_PY_PATH"
+          echo "Created $INIT_PY_PATH on main branch with version $VERSION_TO_SET."
         fi
 
-        CURRENT_VERSION_IN_MAIN_INIT_PY=$(grep -oP '__version__ = "\K[^"]+' app-service/__init__.py || echo "not_found")
-        echo "Current version in app-service/__init__.py on main branch: $CURRENT_VERSION_IN_MAIN_INIT_PY"
-
-        if [ "$CURRENT_VERSION_IN_MAIN_INIT_PY" == "$VERSION_TO_SET" ]; then
-          echo "app-service/__init__.py on main branch is already at version $VERSION_TO_SET. No changes needed."
+        # Use a different delimiter for sed if VERSION_TO_SET can contain slashes (unlikely for versions)
+        # Ensure the __version__ line exists or add it
+        if grep -q "__version__ = " "$INIT_PY_PATH"; then
+          CURRENT_VERSION_IN_MAIN_INIT_PY=$(grep -oP '__version__ = "\K[^"]+' "$INIT_PY_PATH" || echo "not_found")
+          echo "Current version in $INIT_PY_PATH on main branch: $CURRENT_VERSION_IN_MAIN_INIT_PY"
+          if [ "$CURRENT_VERSION_IN_MAIN_INIT_PY" == "$VERSION_TO_SET" ]; then
+            echo "$INIT_PY_PATH on main branch is already at version $VERSION_TO_SET. No changes needed."
+          else
+            echo "Updating $INIT_PY_PATH on main branch to version $VERSION_TO_SET..."
+            sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION_TO_SET\"/" "$INIT_PY_PATH"
+          fi
         else
-          echo "Updating app-service/__init__.py on main branch to version $VERSION_TO_SET..."
-          sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION_TO_SET\"/" app-service/__init__.py
-          echo "Updated app-service/__init__.py content on main branch:"
-          cat app-service/__init__.py
+          echo "__version__ line not found in $INIT_PY_PATH. Appending version."
+          echo "__version__ = \"$VERSION_TO_SET\"" >> "$INIT_PY_PATH"
+        fi
+        
+        echo "Updated $INIT_PY_PATH content on main branch:"
+        cat "$INIT_PY_PATH"
 
-          git add app-service/__init__.py
+        # Check if there are changes to commit
+        if git diff --quiet "$INIT_PY_PATH"; then
+          echo "No changes to commit for $INIT_PY_PATH."
+        else
+          git add "$INIT_PY_PATH"
           git commit -m "chore: Update version in app-service to $VERSION_TO_SET (triggered by tag ${{ github.ref_name }}) [skip ci]"
-
           echo "Pushing updated version file to remote main branch..."
           git push origin main
           echo "Successfully pushed version update to main branch."
         fi
 
     - name: Build and push Docker image
+      # To build multi-arch images, this 'docker build' command needs to be replaced with 'docker buildx build --platform ...'
       run: |
-        IMG="ghcr.io/${{github.repository}}"
-        IMG=${IMG@L} # lower case the image
-        docker build \
-          --tag $IMG:${{ env.version }} \
-          --tag $IMG:${{ env.version_major }}.${{ env.version_minor }}.latest \
-          --tag $IMG:${{ env.version_major }}.latest \
-          --tag $IMG:latest \
-          .
-        docker push --all-tags $IMG 
+        IMG_BASE="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}"
+        IMG_BASE_LOWER=${IMG_BASE@L} # lower case the image base name
+
+        echo "Building and pushing Docker image: $IMG_BASE_LOWER"
+        echo "Tagging with: ${{ env.version }}, ${{ env.version_major }}.${{ env.version_minor }}.latest, ${{ env.version_major }}.latest, latest"
+
+        docker buildx build --platform linux/amd64,linux/arm64\
+          -t $IMG_BASE_LOWER:${{ env.version }} \
+          -t $IMG_BASE_LOWER:${{ env.version_major }}.${{ env.version_minor }}.latest \
+          -t $IMG_BASE_LOWER:${{ env.version_major }}.latest \
+          -t $IMG_BASE_LOWER:latest \
+          -- push .
 
     - name: Create GitHub Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ env.VERSION_TAG_NAME }}
-        name: Release ${{ env.VERSION_TAG_NAME }}
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
         body: |
-          Automated release for version ${{ env.VERSION_TAG_NAME }}.
+          Automated release for version ${{ github.ref_name }}.
 
-          Docker images have been pushed to `ghcr.io/${{github.repository}}` with tags:
-          - `${{ env.version }}`
-          - `${{ env.version_major }}.${{ env.version_minor }}.latest`
-          - `${{ env.version_major }}.latest`
+          **Note:**
+          - This release supports **multi-architecture (arm64/amd64)** for our Docker images. 
+
+          Docker images have been pushed to `ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}` (lowercased) with tags:
+          - `${{ env.version }}` (e.g., ${{ env.version }})
+          - `${{ env.version_major }}.${{ env.version_minor }}.latest` (e.g., ${{ env.version_major }}.${{ env.version_minor }}.latest)
+          - `${{ env.version_major }}.latest` (e.g., ${{ env.version_major }}.latest)
           - `latest`
 
           *Note: The version in `app-service/__init__.py` on the `main` branch has been updated to `${{ env.version }}` by this workflow.*
