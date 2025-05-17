@@ -1,5 +1,6 @@
 .app-container {
-    height: 50vh;
+    height: auto;         
+    min-height: fit-content;
     width: 50%; 
     margin: 2rem auto; 
     padding: 1rem 2rem;
@@ -16,6 +17,7 @@
     font-weight: bold;
     margin-bottom: 1.5rem;
     text-align: center;
+    overflow-y: hidden;
   }
   
   .form-container {
@@ -76,7 +78,9 @@
   }
 
   .table-container{
+    box-sizing: border-box;
     width: 100%;
+    height: auto; 
     margin-bottom: 2rem;
     background-color: #ffffff;
     padding: 1.5rem; 
@@ -89,7 +93,7 @@
 
   .table-container table{
     text-align: center;
-	vertical-align: middle;;
+	  vertical-align: middle;
     border-collapse: collapse;
   }
 
@@ -100,4 +104,8 @@
 
   thead th {
     width: 25%;
+  }
+
+  .versions{
+    text-align: center;
   }
