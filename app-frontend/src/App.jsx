@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import InputReview from './Components/InputReview'
 import Reviews from './Components/Reviews'
 import Versions from './Components/Versions'
+import Feedback from './Components/Feedback'
 import reviewService from './Services/reviews'
 import './app.css'
 
@@ -9,6 +10,7 @@ function App() {
   const [reviewText, setReviewText] = useState('')
   const [reviews, setReviews] = useState([])
   const [versions, setVersions] = useState({})
+  const [showFeedback, setShowFeedback] = useState(false)
   
   useEffect(()=>{
     reviewService
@@ -43,12 +45,22 @@ function App() {
         setReviews(reviews.concat(createdReview))
         setReviewText('')
       })
+      setShowFeedback(true)
     }
+  }
+
+  const handleFeedback = () => {
+    const review = reviews[reviews.length - 1]
+
+    reviewService
+    .sendFeedback(review)
+    .then(response => {
+      console.log(response)
+    })
   }
 
   return (
     <>
-    {console.log(versions)}
       <Versions
       modelVersion={versions.modelVersion}
       appVersion={versions.appVersion}
@@ -59,9 +71,9 @@ function App() {
         onSubmit={addReview}
         reviewText={reviewText} 
         changeReviewText={handleReviewText}/>
-
         <Reviews reviews={reviews}/>
       </div>
+      <Feedback onSubmit={handleFeedback} showFeedback={showFeedback}/>
     </>
   )
 }

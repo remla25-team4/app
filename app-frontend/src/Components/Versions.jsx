@@ -1,5 +1,4 @@
 const Versions = ({modelVersion, appVersion, libVersion}) => {
-    console.log(libVersion)
     return(
         <div class="versions">
             <p>Model Version: {modelVersion}</p>
