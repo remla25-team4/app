@@ -80,5 +80,11 @@ def add_review():
         print(f"Unexpected error: {str(error)}")
         return jsonify({"error": "An unexpected error occurred"}), 500
 
+@app.route('/api/feedback', methods=["POST"])
+def send_feedback():
+    #just send success status for now until model service is setup to do something with it
+    body = request.json
+    return jsonify({"message": "Feedback received successfully"}), 200
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=True)
