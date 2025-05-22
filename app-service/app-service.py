@@ -56,6 +56,8 @@ def generate_id():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def index(path):
+    if path == 'metrics':
+        abort(404) 
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     else:
