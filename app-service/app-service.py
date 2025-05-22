@@ -28,7 +28,7 @@ wrong_prediction_counter = metrics.counter(
     labels={
         'predicted_sentiment': lambda: request.json.get('sentiment'),
         'actual_sentiment': lambda: 'negative' if request.json.get('sentiment') == 'positive' else 'positive',
-        'review_length': lambda: lenn(request.json.get('text'))
+        'review_length': lambda: len(request.json.get('text'))
     }
 )
 
