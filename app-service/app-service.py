@@ -26,7 +26,7 @@ metrics.info('app_info', 'Application info', version=LIBVERSION)
 wrong_prediction_counter = metrics.counter(
     'wrong_prediction_counter', 'Number of wrong sentiment predictions',
     labels={
-        'predicted_sentiment': lambda: request.json.get('sentiment')
+        'predicted_sentiment': lambda: request.json.get('sentiment'),
         'actual_sentiment': lambda: 'negative' if request.json.get('sentiment') == 'positive' else 'positive',
         'review_length': lambda: lenn(request.json.get('text'))
     }
