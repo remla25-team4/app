@@ -13,7 +13,7 @@ spec.loader.exec_module(init_module)
 
 load_dotenv()
 
-app = Flask(__name__, static_folder='../app-frontend/dist')
+app = Flask(__name__, static_folder='../app-frontend/dist', static_url_path='')
 metrics = PrometheusMetrics(app)
 
 PORT = int(os.environ.get("PORT", 3001))
@@ -53,12 +53,8 @@ reviews = [
 def generate_id():
     return random.randint(1, 5000)
     
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def index(path):
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    else:
+@app.route('/')
+def index():
         return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/api/reviews', methods=["GET"])
