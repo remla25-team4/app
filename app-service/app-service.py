@@ -52,10 +52,6 @@ reviews = [
 
 def generate_id():
     return random.randint(1, 5000)
-
-@app.route('/metrics')
-def custom_metrics():
-    return metrics.do_metrics()
     
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
