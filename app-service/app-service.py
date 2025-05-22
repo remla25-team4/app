@@ -53,11 +53,13 @@ reviews = [
 def generate_id():
     return random.randint(1, 5000)
 
+@app.route('/metrics')
+def custom_metrics():
+    return metrics.do_metrics()
+    
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def index(path):
-    if path == 'metrics':
-        abort(404) 
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     else:
