@@ -1,11 +1,12 @@
 from flask import Flask, request, jsonify, send_from_directory, abort
-from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import Counter, Gauge, Info, generate_latest, CONTENT_TYPE_LATEST
 import os
 import requests
 from dotenv import load_dotenv
 import random
 from lib_version import *
 import importlib.util
+
 init_path = os.path.join(os.path.dirname(__file__), "__init__.py")
 spec = importlib.util.spec_from_file_location("init_module", init_path)
 init_module = importlib.util.module_from_spec(spec)
@@ -14,32 +15,30 @@ spec.loader.exec_module(init_module)
 load_dotenv()
 
 app = Flask(__name__, static_folder='../app-frontend/dist', static_url_path='')
-metrics = PrometheusMetrics(app)
 
 PORT = int(os.environ.get("PORT", 3001))
 MODEL_SERVICE_URL = os.environ.get("MODEL_SERVICE_URL", "http://host.docker.internal:8080")
 vu = VersionUtil()
 LIBVERSION = vu.get_package_version()
 
-metrics.info('app_info', 'Application info', version=LIBVERSION)
+app_info = Info('app_info', 'Application info')
+app_info.info({'version': LIBVERSION})
 
-wrong_prediction_counter = metrics.counter(
-    'wrong_prediction_counter', 'Number of wrong sentiment predictions',
-    labels={
-        'predicted_sentiment': lambda: request.json.get('sentiment'),
-        'actual_sentiment': lambda: 'negative' if request.json.get('sentiment') == 'positive' else 'positive',
-        'review_length': lambda: len(request.json.get('text'))
-    }
+wrong_prediction_counter = Counter(
+    'wrong_prediction_counter', 
+    'Number of wrong sentiment predictions',
+    ['predicted_sentiment', 'actual_sentiment', 'review_length']
 )
 
-prediction_requests_gauge = metrics.gauge(
-    'active_prediction_requests', 'Number of active prediction requests'
+prediction_requests_gauge = Gauge(
+    'active_prediction_requests', 
+    'Number of active prediction requests'
 )
 
-failed_prediction_requests = metrics.counter(
+failed_prediction_requests = Counter(
     'failed_prediction_requests', 
     'Number of failed requests to the reviews POST endpoint',
-    labels={'error_type': lambda: 'unknown'}
+    ['error_type']
 )
 
 reviews = [
@@ -52,7 +51,11 @@ reviews = [
 
 def generate_id():
     return random.randint(1, 5000)
-    
+
+@app.route('/metrics')
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+
 @app.route('/')
 def index():
         return send_from_directory(app.static_folder, 'index.html')
@@ -105,10 +108,20 @@ def add_review():
          prediction_requests_gauge.dec()
 
 @app.route('/api/feedback', methods=["POST"])
-@wrong_prediction_counter
 def send_feedback():
     #just send success status for now until model service is setup to do something with it
     body = request.json
+
+    predicted_sentiment = body.get('sentiment', 'unknown')
+    actual_sentiment = 'negative' if predicted_sentiment == 'positive' else 'positive'
+    review_length = str(len(body.get('text', '')))
+
+    wrong_prediction_counter.labels(
+        predicted_sentiment=predicted_sentiment,
+        actual_sentiment=actual_sentiment,
+        review_length=review_length
+    ).inc()
+    
     return jsonify({"message": "Feedback received successfully"}), 200
 
 if __name__ == '__main__':
