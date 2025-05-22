@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, abort
+from flask import Flask, request, jsonify, send_from_directory, abort, Response
 from prometheus_client import Counter, Gauge, Info, generate_latest, CONTENT_TYPE_LATEST
 import os
 import requests
