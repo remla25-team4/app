@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
+from prometheus_flask_exporter import PrometheusMetrics
 import os
 import requests
 from dotenv import load_dotenv
@@ -13,11 +14,33 @@ spec.loader.exec_module(init_module)
 load_dotenv()
 
 app = Flask(__name__, static_folder='../app-frontend/dist')
+metrics = PrometheusMetrics(app)
 
 PORT = int(os.environ.get("PORT", 3001))
 MODEL_SERVICE_URL = os.environ.get("MODEL_SERVICE_URL", "http://host.docker.internal:8080")
 vu = VersionUtil()
 LIBVERSION = vu.get_package_version()
+
+metrics.info('app_info', 'Application info', version=LIBVERSION)
+
+wrong_prediction_counter = metrics.counter(
+    'wrong_prediction_counter', 'Number of wrong sentiment predictions',
+    labels={
+        'predicted_sentiment': lambda: request.json.get('sentiment')
+        'actual_sentiment': lambda: 'negative' if request.json.get('sentiment') == 'positive' else 'positive',
+        'review_length': lambda: lenn(request.json.get('text'))
+    }
+)
+
+prediction_requests_gauge = metrics.gauge(
+    'active_prediction_requests', 'Number of active prediction requests'
+)
+
+failed_prediction_requests = metrics.counter(
+    'failed_prediction_requests', 
+    'Number of failed requests to the reviews POST endpoint',
+    labels={'error_type': lambda: 'unknown'}
+)
 
 reviews = [
     {
@@ -56,6 +79,7 @@ def get_versions():
 
 @app.route('/api/reviews', methods=["POST"])
 def add_review():
+    prediction_requests_gauge.inc()
     try:
         body = request.json
         
@@ -74,13 +98,18 @@ def add_review():
         return jsonify(new_review)
         
     except requests.exceptions.RequestException as error:
+        failed_prediction_requests.labels(error_type='model_service').inc()
         print(f"Error connecting to model service: {str(error)}")
         return jsonify({"error": "Failed to connect to model service"}), 500
     except Exception as error:
+        failed_prediction_requests.labels(error_type='server').inc()
         print(f"Unexpected error: {str(error)}")
         return jsonify({"error": "An unexpected error occurred"}), 500
+    finally:
+         prediction_requests_gauge.dec()
 
 @app.route('/api/feedback', methods=["POST"])
+@wrong_prediction_counter
 def send_feedback():
     #just send success status for now until model service is setup to do something with it
     body = request.json
