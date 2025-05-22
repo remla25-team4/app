@@ -26,7 +26,7 @@ metrics.info('app_info', 'Application info', version=LIBVERSION)
 wrong_prediction_counter = metrics.counter(
     'wrong_prediction_counter', 'Number of wrong sentiment predictions',
     labels={
-        'predicted_sentiment': lambda: request.json.get('sentiment')
+        'predicted_sentiment': lambda: request.json.get('sentiment'),
         'actual_sentiment': lambda: 'negative' if request.json.get('sentiment') == 'positive' else 'positive',
         'review_length': lambda: lenn(request.json.get('text'))
     }
@@ -56,6 +56,8 @@ def generate_id():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def index(path):
+    if path == 'metrics':
+        abort(404) 
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     else:
