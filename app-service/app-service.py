@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, abort
 from prometheus_flask_exporter import PrometheusMetrics
 import os
 import requests
