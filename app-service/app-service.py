@@ -41,6 +41,9 @@ failed_prediction_requests = Counter(
     ['error_type']
 )
 
+failed_prediction_requests.labels(error_type='model_service').inc(0)
+failed_prediction_requests.labels(error_type='server').inc(0)
+
 reviews = [
     {
         "id": 1,
