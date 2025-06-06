@@ -31,21 +31,22 @@ function App() {
   }
 
   const addReview = (event) => {
-    event.preventDefault()
+    event.preventDefault();
+    setShowFeedback(false);
 
-    if(reviewText != ''){
+    if (reviewText !== '') {
       const newReview = {
         text: reviewText,
         sentiment: ""
-      }
+      };
 
       reviewService
-      .create(newReview)
-      .then(createdReview => {
-        setReviews(reviews.concat(createdReview))
-        setReviewText('')
-      })
-      setShowFeedback(true)
+        .create(newReview)
+        .then(createdReview => {
+          setReviews(reviews.concat(createdReview));
+          setReviewText('');
+          setShowFeedback(true);
+        });
     }
   }
 
