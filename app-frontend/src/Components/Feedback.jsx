@@ -1,6 +1,13 @@
-import { useState} from 'react'
+import { useState, useEffect } from 'react';
+
 const Feedback = (props) => {
-    const [feedback, setFeedback] = useState(null)
+    const [feedback, setFeedback] = useState(null);
+
+    useEffect(() => {
+        if (props.showFeedback) {
+            setFeedback(null);
+        }
+    }, [props.showFeedback]);
 
     const handleFeedbackYes = () =>{
         setFeedback('yes')
@@ -21,7 +28,7 @@ const Feedback = (props) => {
                     (
                         <div class="feedback-buttons">
                             <button class="yes-button" onClick={()=>handleFeedbackYes()}>Yes 👍</button>
-                            <button type="submit" class="no-button" onClick={()=>handleFeedbackNo('no')}>No 👎</button>
+                            <button type="submit" class="no-button" onClick={()=>handleFeedbackNo()}>No 👎</button>
                         </div>
                     )
                     :
