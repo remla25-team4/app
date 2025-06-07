@@ -1,11 +1,12 @@
 from flask import Flask, request, jsonify, send_from_directory, abort, Response
-from prometheus_client import Counter, Gauge, Info, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Gauge, Info, Histogram, generate_latest, CONTENT_TYPE_LATEST
 import os
 import requests
 from dotenv import load_dotenv
 import random
 from lib_version import *
 import importlib.util
+
 
 init_path = os.path.join(os.path.dirname(__file__), "__init__.py")
 spec = importlib.util.spec_from_file_location("init_module", init_path)
@@ -24,6 +25,8 @@ LIBVERSION = vu.get_package_version()
 app_info = Info('app_info', 'Application info')
 app_info.info({'version': LIBVERSION})
 
+##### METRICS ###### 
+
 wrong_prediction_counter = Counter(
     'wrong_prediction_counter', 
     'Number of wrong sentiment predictions',
@@ -41,16 +44,14 @@ failed_prediction_requests = Counter(
     ['error_type']
 )
 
+time_to_click = Histogram(
+    'time_to_click_seconds',
+    'Time between page load and button click reported by frontend'
+)
+
 failed_prediction_requests.labels(error_type='model_service').inc(0)
 failed_prediction_requests.labels(error_type='server').inc(0)
 
-reviews = [
-    {
-        "id": 1,
-        "text": "What a lovely restaurant!",
-        "sentiment": "positive"
-    }
-]
 
 def generate_id():
     return random.randint(1, 5000)
@@ -126,6 +127,23 @@ def send_feedback():
     ).inc()
     
     return jsonify({"message": "Feedback received successfully"}), 200
+
+
+@app.route('/api/time-to-click', methods=["POST"])
+def record_time_to_click():
+    body = request.json
+    elapsed_time = body.get("elapsedTime")
+
+    if elapsed_time is not None:
+        try:
+            elapsed_seconds = float(elapsed_time)
+            time_to_click.observe(elapsed_seconds)
+            return jsonify({"message": "Time recorded"}), 200
+        except ValueError:
+            return jsonify({"error": "Invalid elapsedTime format"}), 400
+    else:
+        return jsonify({"error": "elapsedTime not provided"}), 400
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT, debug=True)
