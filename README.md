@@ -15,7 +15,7 @@ docker build -t app-image .
 ### 2. Run the container
 
 ```bash
-docker run -p 3001:3001 -e MODEL_SERVICE_URL=http://localhost:8080 app-image
+docker run -p 3001:3001 -e MODEL_SERVICE_URL=http://host.docker.internal:8080 app-image
 ```
 Note: you have to run the model service container.
 ---
