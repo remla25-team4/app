@@ -33,6 +33,7 @@ wrong_prediction_counter = Counter(
     ['predicted_sentiment', 'actual_sentiment', 'review_length']
 )
 
+
 prediction_requests_gauge = Gauge(
     'active_prediction_requests', 
     'Number of active prediction requests'
@@ -49,9 +50,23 @@ time_to_click = Histogram(
     'Time between page load and button click reported by frontend'
 )
 
+# Initialize metrics
 failed_prediction_requests.labels(error_type='model_service').inc(0)
 failed_prediction_requests.labels(error_type='server').inc(0)
+wrong_prediction_counter.labels(
+    predicted_sentiment="positive",
+    actual_sentiment="negative",
+    review_length="0"
+).inc(0)
+prediction_requests_gauge.set(0)
 
+reviews = [
+    {
+        "id": 1,
+        "text": "What a lovely restaurant!",
+        "sentiment": "positive"
+    }
+]
 
 def generate_id():
     return random.randint(1, 5000)
