@@ -60,7 +60,14 @@ wrong_prediction_counter.labels(
 ).inc(0)
 prediction_requests_gauge.set(0)
 
-reviews = []
+reviews = [
+    {
+        "id": 1,
+        "text": "What a lovely restaurant!",
+        "sentiment": "positive"
+    }
+]
+
 def generate_id():
     return random.randint(1, 5000)
 
