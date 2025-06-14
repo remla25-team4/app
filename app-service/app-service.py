@@ -58,6 +58,13 @@ wrong_prediction_counter.labels(
     actual_sentiment="negative",
     review_length="0"
 ).inc(0)
+
+wrong_prediction_counter.labels(
+    predicted_sentiment="negative",
+    actual_sentiment="positive",
+    review_length="0"
+).inc(0)
+
 prediction_requests_gauge.set(0)
 
 reviews = [
