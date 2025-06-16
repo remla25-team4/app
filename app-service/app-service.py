@@ -45,6 +45,12 @@ failed_prediction_requests = Counter(
     ['error_type']
 )
 
+total_prediction_requests = Counter(
+    'total_prediction_requests',
+    'Total amount of requests to the reviews POST endpoint',
+    ['sentiment']
+)
+
 time_to_click = Histogram(
     'time_to_click_seconds',
     'Time between page load and button click reported by frontend'
@@ -53,12 +59,15 @@ time_to_click = Histogram(
 # Initialize metrics
 failed_prediction_requests.labels(error_type='model_service').inc(0)
 failed_prediction_requests.labels(error_type='server').inc(0)
+
+total_prediction_requests.labels(sentiment='positive').inc(0)
+total_prediction_requests.labels(sentiment='negative').inc(0)
+
 wrong_prediction_counter.labels(
     predicted_sentiment="positive",
     actual_sentiment="negative",
     review_length="0"
 ).inc(0)
-
 wrong_prediction_counter.labels(
     predicted_sentiment="negative",
     actual_sentiment="positive",
@@ -112,6 +121,8 @@ def add_review():
                                       json={"text": body["text"]})
         model_response.raise_for_status()
         
+        total_prediction_requests.labels(sentiment=model_response["prediction"]).inc()
+
         new_review = {
             "id": generate_id(),
             "text": body["text"],
