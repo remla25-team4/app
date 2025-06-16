@@ -121,7 +121,7 @@ def add_review():
                                       json={"text": body["text"]})
         model_response.raise_for_status()
         
-        total_prediction_requests.labels(sentiment=model_response["prediction"]).inc()
+        total_prediction_requests.labels(sentiment=model_response.json()["prediction"]).inc()
 
         new_review = {
             "id": generate_id(),
