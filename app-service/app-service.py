@@ -76,6 +76,8 @@ wrong_prediction_counter.labels(
 
 prediction_requests_gauge.set(0)
 
+time_to_click.labels().observe(0)
+
 reviews = [
     {
         "id": 1,
