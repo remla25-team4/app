@@ -7,6 +7,7 @@ import './app.css'
 function App() {
   const [reviewText, setReviewText] = useState('')
   const [reviews, setReviews] = useState([])
+  const [pageLoadTime, setPageLoadTime] = useState(null);
   
   useEffect(()=>{
     reviewService
@@ -14,6 +15,8 @@ function App() {
     .then(allReviews =>{
       setReviews(allReviews)
     })
+
+    setPageLoadTime(Date.now());
   },[])
 
   const handleReviewText = (event) => {
@@ -22,20 +25,40 @@ function App() {
   }
 
   const addReview = (event) => {
-    event.preventDefault()
+    event.preventDefault();
 
-    if(reviewText != ''){
-      const newReview = {
-        text: reviewText,
-        sentiment: ""
+    try{
+      if (pageLoadTime) {
+        const elapsedTime = {
+          time: (Date.now() - pageLoadTime) / 1000,
+          version: "canary"
+        };
+        
+        reviewService
+        .createElapsedTime(elapsedTime)
+        .then(elapsedTimeResponse => {
+          console.log(elapsedTimeResponse)
+        })
+
+        setPageLoadTime(null)
       }
-
-      reviewService
-      .create(newReview)
-      .then(createdReview => {
-        setReviews(reviews.concat(createdReview))
-        setReviewText('')
-      })
+      
+      
+      if (reviewText !== '') {
+        const newReview = {
+          text: reviewText,
+          sentiment: ""
+        };
+        
+        reviewService
+        .create(newReview)
+        .then(createdReview => {
+          setReviews(reviews.concat(createdReview));
+          setReviewText('');
+        });
+      }
+    } catch (err){
+      console.error("Error sending post request to backend:", err);
     }
   }
 

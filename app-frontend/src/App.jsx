@@ -39,10 +39,13 @@ function App() {
     try{
 
       if (pageLoadTime) {
-        const elapsedTime = (Date.now() - pageLoadTime) / 1000;
+        const elapsedTime = {
+          time: (Date.now() - pageLoadTime) / 1000,
+          version: "main"
+        };
         
         reviewService
-        .createElapsedTime({elapsedTime})
+        .createElapsedTime(elapsedTime)
         .then(elapsedTimeResponse => {
           console.log(elapsedTimeResponse)
         })
