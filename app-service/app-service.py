@@ -53,7 +53,8 @@ total_prediction_requests = Counter(
 
 time_to_click = Histogram(
     'time_to_click_seconds',
-    'Time between page load and button click reported by frontend'
+    'Time between page load and button click reported by frontend',
+    ['version']
 )
 
 # Initialize metrics
@@ -76,7 +77,8 @@ wrong_prediction_counter.labels(
 
 prediction_requests_gauge.set(0)
 
-time_to_click.labels().observe(0)
+time_to_click.labels(version='main').observe(0)
+time_to_click.labels(version='canary').observe(0)
 
 reviews = [
     {
@@ -167,13 +169,18 @@ def send_feedback():
 @app.route('/api/time-to-click', methods=["POST"])
 def record_time_to_click():
     body = request.json
-    elapsed_time = body.get("elapsedTime")
+    elapsed_time = body.get("time")
+    version = body.get("version")
 
     if elapsed_time is not None:
         try:
             elapsed_seconds = float(elapsed_time)
-            time_to_click.observe(elapsed_seconds)
-            return jsonify({"message": "Time recorded"}), 200
+            if(version == "main"):
+                time_to_click.labels(version='main').observe(elapsed_seconds)
+            else:
+                time_to_click.labels(version='canary').observe(elapsed_seconds)
+
+            return jsonify({"message": f"{version} Time recorded - {elapsed_seconds}"}), 200
         except ValueError:
             return jsonify({"error": "Invalid elapsedTime format"}), 400
     else:
