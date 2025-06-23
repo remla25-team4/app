@@ -17,5 +17,5 @@ docker build -t app-image .
 ```bash
 docker run -p 3001:3001 -e MODEL_SERVICE_URL=http://host.docker.internal:8080 app-image
 ```
-Note: you have to run the model service container.
+Note: you have to run the model service container at [model-service](https://github.com/remla25-team4/model-service).
 ---
