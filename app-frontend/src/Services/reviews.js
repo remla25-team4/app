@@ -16,6 +16,11 @@ const create = (newObject) => {
     return request.then(response => response.data)
 }
 
+const createElapsedTime = (newObject) => {
+    const request = axios.post('/api/time-to-click', newObject)
+    return request.then(response => response.data)
+}
+
 const sendFeedback = (review) => {
     const request = axios.post('api/feedback', review)
     return request.then(response => response.data)
@@ -31,4 +36,4 @@ const remove = (id) =>{
     return request.then(response => response.data)
 }
 
-export default {getAll, getVersions, create, sendFeedback, update, remove}
+export default {getAll, getVersions, create, createElapsedTime, sendFeedback, update, remove}

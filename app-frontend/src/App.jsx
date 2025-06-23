@@ -11,6 +11,7 @@ function App() {
   const [reviews, setReviews] = useState([])
   const [versions, setVersions] = useState({})
   const [showFeedback, setShowFeedback] = useState(false)
+  const [pageLoadTime, setPageLoadTime] = useState(null);
   
   useEffect(()=>{
     reviewService
@@ -24,6 +25,7 @@ function App() {
     .then(allVersions => {
       setVersions(allVersions)
     })
+    setPageLoadTime(Date.now());
   },[])
 
   const handleReviewText = (event) => {
@@ -34,19 +36,37 @@ function App() {
     event.preventDefault();
     setShowFeedback(false);
 
-    if (reviewText !== '') {
-      const newReview = {
-        text: reviewText,
-        sentiment: ""
-      };
+    try{
 
-      reviewService
+      if (pageLoadTime) {
+        const elapsedTime = (Date.now() - pageLoadTime) / 1000;
+        
+        reviewService
+        .createElapsedTime({elapsedTime})
+        .then(elapsedTimeResponse => {
+          console.log(elapsedTimeResponse)
+        })
+
+        setPageLoadTime(null)
+      }
+      
+      
+      if (reviewText !== '') {
+        const newReview = {
+          text: reviewText,
+          sentiment: ""
+        };
+        
+        reviewService
         .create(newReview)
         .then(createdReview => {
           setReviews(reviews.concat(createdReview));
           setReviewText('');
           setShowFeedback(true);
         });
+      }
+    } catch (err){
+      console.error("Error sending post request to backend:", err);
     }
   }
 
