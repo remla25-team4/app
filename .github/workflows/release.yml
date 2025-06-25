@@ -106,30 +106,55 @@ jobs:
         prerelease: false
 
     - name: Update version file on main branch
-      env:
-        GH_TOKEN: ${{ github.token }}
       run: |
+        VERSION_TO_SET="${{ env.version }}"
+        echo "Target version for main branch's app-service/__init__.py: $VERSION_TO_SET"
+        
+        if [ -z "$VERSION_TO_SET" ]; then
+          echo "Error: Version from tag is not set. Skipping update to main."
+          exit 1
+        fi
+        
         echo "Configuring Git user..."
-        git config --global user.name 'github-actions[bot]'
+        git config --global user.name 'GitHub Actions Bot'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         
-        echo "Checking out main branch to update version..."
+        echo "Resetting local changes before switching branches..."
+        git reset --hard HEAD
+        
+        # Second, explicitly fetch and checkout the remote main branch.
+        echo "Fetching latest main branch from remote..."
         git fetch origin main
-        git checkout main
         
-        INIT_PY_PATH="app/__init__.py"
-        VERSION_TO_SET="${{ env.VERSION }}"
+        echo "Checking out main branch..."
+        git checkout -B main origin/main
         
-        echo "Updating version in $INIT_PY_PATH on main to $VERSION_TO_SET..."
-        mkdir -p "$(dirname "$INIT_PY_PATH")"
-        echo "__version__ = \"$VERSION_TO_SET\"" > "$INIT_PY_PATH"
+        INIT_PY_PATH="app-service/__init__.py"
         
-        # Check for changes and commit/push if any
-        if git diff --quiet "$INIT_PY_PATH"; then
-          echo "No version changes to commit to main."
+        if [ ! -f "$INIT_PY_PATH" ]; then
+          echo "Warning: $INIT_PY_PATH not found on the main branch. Creating it."
+          mkdir -p "$(dirname "$INIT_PY_PATH")"
+          echo "__version__ = \"$VERSION_TO_SET\"" > "$INIT_PY_PATH"
+        fi
+        
+        if grep -q "__version__ = " "$INIT_PY_PATH"; then
+          CURRENT_VERSION_IN_MAIN_INIT_PY=$(grep -oP '__version__ = "\K[^"]+' "$INIT_PY_PATH" || echo "not_found")
+          if [ "$CURRENT_VERSION_IN_MAIN_INIT_PY" == "$VERSION_TO_SET" ]; then
+            echo "$INIT_PY_PATH on main branch is already at version $VERSION_TO_SET. No changes needed."
+          else
+            echo "Updating $INIT_PY_PATH on main branch to version $VERSION_TO_SET..."
+            sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION_TO_SET\"/" "$INIT_PY_PATH"
+          fi
         else
-          echo "Committing and pushing version update to main..."
+          echo "__version__ line not found in $INIT_PY_PATH. Appending version."
+          echo "__version__ = \"$VERSION_TO_SET\"" >> "$INIT_PY_PATH"
+        fi
+        
+        if git diff --quiet "$INIT_PY_PATH"; then
+          echo "No changes to commit for $INIT_PY_PATH."
+        else
           git add "$INIT_PY_PATH"
-          git commit -m "chore(version): Bump version in main to ${{ env.VERSION }} [skip ci]"
-          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git main
+          git commit -m "chore: Update version in app-service to $VERSION_TO_SET (triggered by tag ${{ github.ref_name }}) [skip ci]"
+          echo "Pushing updated version file to remote main branch..."
+          git push origin main
         fi
