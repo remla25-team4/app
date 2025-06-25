@@ -1,5 +1,5 @@
 Flask==3.1.0
 requests==2.32.3
 python-dotenv==1.0.1
-lib_version @ https://github.com/remla25-team4/lib-version/releases/download/v0.1.1/lib_version-0.1.1-py3-none-any.whl
+lib_version @ https://github.com/remla25-team4/lib-version/releases/download/v1.0.0/lib_version-1.0.0-py3-none-any.whl
 prometheus-client==0.20.0
