@@ -53,7 +53,9 @@ jobs:
           REPO=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
           IMG_BASE="ghcr.io/${REPO}/${NAME}"
-          VERSION_TAG=${{ github.ref_name#v }}
+          
+          FULL_TAG="${{ github.ref_name }}"
+          VERSION_TAG=${FULL_TAG#v}
           
           docker buildx build --platform linux/amd64,linux/arm64 \
           -t "${IMG_BASE}:${VERSION_TAG}" \
