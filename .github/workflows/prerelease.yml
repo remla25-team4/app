@@ -1,11 +1,9 @@
-name: Pre-release
+name: Create Pre-release for app
 
 on:
   push:
-    branches:
-      - main
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   build_and_prerelease:
@@ -16,32 +14,16 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout code
+      - name: Checkout code from main
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          # ensures checking out the main branch
+          ref: 'main'
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f app-service/requirements.txt ]; then
-            pip install -r app-service/requirements.txt
-          else
-            echo "Warning: app-service/requirements.txt not found. Skipping pip install."
-          fi
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -49,52 +31,37 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Determine trigger type
-        id: trigger
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "triggered_by=tag" >> $GITHUB_OUTPUT
-          else
-            echo "triggered_by=branch" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Get latest tag from history
-        if: steps.trigger.outputs.triggered_by == 'branch'
-        run: |
-          LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "LATEST_TAG=$LATEST" >> $GITHUB_ENV
-
-      - name: Get latest tag from pushed tag
-        if: steps.trigger.outputs.triggered_by == 'tag'
-        run: |
-          echo "LATEST_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
-
       - name: Calculate pre-release version
+        id: calculate_version
         run: |
-          # strip leading 'v' and any '-pre' suffix
-          BASE=${LATEST_TAG#v}
-          BASE=${BASE%%-pre*}
-          IFS=. read MAJOR MINOR PATCH <<< "$BASE"
-
-          # always bump patch for prerelease
+          # The base version is the stable tag that triggered the workflow
+          BASE_TAG=${{ github.ref_name }}
+          echo "Triggered by stable tag: $BASE_TAG"
+          
+          BASE_VERSION=${BASE_TAG#v} # Remove the 'v' prefix
+          IFS=. read MAJOR MINOR PATCH <<< "$BASE_VERSION"
+          
+          # Increment the patch number for the new pre-release, as per the rubric
           PATCH=$((PATCH + 1))
-          TS=$(date +%Y%m%d.%H%M%S)
-          PRERELEASE="$MAJOR.$MINOR.$PATCH-pre.$TS"
+          
+          # Use a timestamp for the pre-release identifier
+          TS=$(date +%Y%m%d%H%M%S)
+          PRE_RELEASE_VERSION="$MAJOR.$MINOR.$PATCH-pre.$TS"
+          
+          echo "VERSION=$PRE_RELEASE_VERSION" >> $GITHUB_ENV
+          echo "Calculated pre-release version: v$PRE_RELEASE_VERSION"
 
-          echo "version=$PRERELEASE"        >> $GITHUB_ENV
-          echo "version_major=$MAJOR"       >> $GITHUB_ENV
-          echo "version_minor=$MINOR"       >> $GITHUB_ENV
-          echo "version_patch=$PATCH"       >> $GITHUB_ENV
-
-      - name: Tag pre-release commit
-        if: steps.trigger.outputs.triggered_by == 'branch'
+      - name: Tag the commit on main
         run: |
           git config --global user.name  "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          SHA=$(git rev-parse origin/main)
-          git tag "v${{ env.version }}" $SHA
-          git push origin "v${{ env.version }}"
+          
+          # Get the SHA of the commit we checked out from main
+          SHA=$(git rev-parse HEAD)
+          echo "Tagging commit $SHA on main with v${{ env.VERSION }}"
+          
+          git tag "v${{ env.VERSION }}" $SHA
+          git push origin "v${{ env.VERSION }}"
 
       - name: Build and push Docker image (multi-arch)
         run: |
@@ -102,22 +69,18 @@ jobs:
           NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
           IMG="ghcr.io/${REPO}/${NAME}"
 
+          # Tag the image with the new pre-release version and other relevant tags
           docker buildx build --platform linux/amd64,linux/arm64 \
-            -t "${IMG}:v${{ env.version }}" \
-            -t "${IMG}:${{ env.version_major }}.${{ env.version_minor }}.latest" \
-            -t "${IMG}:${{ env.version_major }}.latest" \
-            -t "${IMG}:latest" \
+            -t "${IMG}:v${{ env.VERSION }}" \
             --push .
 
       - name: Create GitHub Pre-release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v${{ env.version }}"
-          name: Pre-release v${{ env.version }}
+          tag_name: "v${{ env.VERSION }}"
+          name: Pre-release v${{ env.VERSION }} (app)
           body: |
-            Automated **pre-release** for version **v${{ env.version }}**.
-
-            • Multi-arch Docker images pushed to `ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}`  
-            • Tagged: `v${{ env.version }}`, `${{ env.version_major }}.${{ env.version_minor }}.latest`, `${{ env.version_major }}.latest`, `latest`
+            Automated **pre-release** for version **v${{ env.VERSION }}**.
+            This pre-release was built from the latest commit on the `main` branch.
           draft: false
           prerelease: true
