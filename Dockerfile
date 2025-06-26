@@ -1,38 +1,41 @@
-FROM python:3.11-slim
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
+# Stage 1: Build the 'stable' React frontend
+FROM node:20-alpine AS stable-frontend-builder
 WORKDIR /app
-RUN mkdir -p /app/app-frontend /app/app-frontend-version2 /app/app-service /app/lib-version
-ARG APP_FRONTEND_DIR=app-frontend
-
-RUN apt-get update && apt-get install -y \
-    git \
-    nodejs \
-    npm \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app/app-service
-COPY app-service/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY app-service/ ./
-
-WORKDIR /app/app-frontend
 COPY app-frontend/package*.json ./
 RUN npm install
-COPY app-frontend/ ./
+COPY app-frontend/ .
 RUN npm run build
 
-WORKDIR /app/app-frontend-version2
+# Build the 'canary' React frontend
+FROM node:20-alpine AS canary-frontend-builder
+WORKDIR /app
 COPY app-frontend-version2/package*.json ./
 RUN npm install
-COPY app-frontend-version2/ ./
+COPY app-frontend-version2/ .
 RUN npm run build
 
-ENV MODEL_SERVICE_URL=http://model-service:8080 \
-    PORT=3001
+# Create the final Python production image
+FROM python:3.11-slim
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+WORKDIR /app
 
+# Copy Python requirements and install dependencies
+COPY app-service/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the Flask application source code
+COPY app-service/ ./app-service
+
+# Copy the built 'stable' frontend from Stage 1
+COPY --from=stable-frontend-builder /app/dist ./app-frontend/dist
+
+# Copy the built 'canary' frontend from Stage 2
+COPY --from=canary-frontend-builder /app/dist ./app-frontend-version2/dist
+
+# Set the final working directory
 WORKDIR /app/app-service
-EXPOSE ${PORT}
+
+# Expose the port and set the run command
+EXPOSE 3001
 CMD ["python", "app-service.py"]
