@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 import random
 from lib_version import *
 import importlib.util
-from flask_cors import CORS
 
 
 init_path = os.path.join(os.path.dirname(__file__), "__init__.py")
@@ -17,7 +16,6 @@ spec.loader.exec_module(init_module)
 load_dotenv()
 
 app = Flask(__name__, static_folder='../app-frontend/dist', static_url_path='')
-CORS(app)
 
 PORT = int(os.environ.get("PORT", 3001))
 MODEL_SERVICE_URL = os.environ.get("MODEL_SERVICE_URL", "http://host.docker.internal:8080")

@@ -1,8 +1,13 @@
 import axios from 'axios'
-const baseUrl = 'http://localhost:3001/api/reviews'
+const baseUrl = '/api/reviews'
 
 const getAll = () => {
     const request = axios.get(baseUrl)
+    return request.then(response => response.data)
+}
+
+const getVersions = () => {
+    const request = axios.get('/api/versions')
     return request.then(response => response.data)
 }
 
@@ -16,13 +21,8 @@ const createElapsedTime = (newObject) => {
     return request.then(response => response.data)
 }
 
-const getVersions = () => {
-    const request = axios.get('/api/versions')
-    return request.then(response => response.data)
-}
-
 const sendFeedback = (review) => {
-    const request = axios.post('/api/feedback', review)
+    const request = axios.post('api/feedback', review)
     return request.then(response => response.data)
 }
 
