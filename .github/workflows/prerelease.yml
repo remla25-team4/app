@@ -30,6 +30,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Overwrite version file with tag for build
+        run: |
+          FULL_TAG=${{ github.ref_name }}
+          VERSION_TAG=${FULL_TAG#v}
+          echo "Setting version for build to: ${VERSION_TAG}"
+
+          echo "__version__ = \"${VERSION_TAG}\"" > app-service/__init__.py
+
       - name: Build and push Docker image
         run: |
           REPO=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
