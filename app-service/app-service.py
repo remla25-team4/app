@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import random
 from lib_version import *
 import importlib.util
+import time
 
 
 init_path = os.path.join(os.path.dirname(__file__), "__init__.py")
@@ -15,7 +16,7 @@ spec.loader.exec_module(init_module)
 
 load_dotenv()
 
-app = Flask(__name__, static_folder='../app-frontend-version/dist', static_url_path='')
+app = Flask(__name__, static_folder='../app-frontend/dist', static_url_path='')
 
 PORT = int(os.environ.get("PORT", 3001))
 MODEL_SERVICE_URL = os.environ.get("MODEL_SERVICE_URL", "http://host.docker.internal:8080")
@@ -57,6 +58,13 @@ time_to_click = Histogram(
     ['version']
 )
 
+prediction_request_latency = Histogram(
+    "prediction_request_latency",
+    "Time spent running the restaurant-sentiment model",
+    ["status"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2)
+)
+
 # Initialize metrics
 failed_prediction_requests.labels(error_type='model_service').inc(0)
 failed_prediction_requests.labels(error_type='server').inc(0)
@@ -79,6 +87,9 @@ prediction_requests_gauge.set(0)
 
 time_to_click.labels(version='main').observe(0)
 time_to_click.labels(version='canary').observe(0)
+
+prediction_request_latency.labels(status='success').observe(0)
+prediction_request_latency.labels(status='error').observe(0)
 
 reviews = [
     {
@@ -119,12 +130,15 @@ def get_versions():
 def add_review():
     prediction_requests_gauge.inc()
     try:
+        start_time = time.time()
         body = request.json
         
         model_response = requests.post(f"{MODEL_SERVICE_URL}/predict", 
                                       json={"text": body["text"]})
         model_response.raise_for_status()
-        
+
+        elapsed_time = time.time() - start_time
+        prediction_request_latency.labels(status="success").observe(elapsed_time)
         total_prediction_requests.labels(sentiment=model_response.json()["prediction"]).inc()
 
         new_review = {
@@ -139,6 +153,8 @@ def add_review():
         
     except requests.exceptions.RequestException as error:
         failed_prediction_requests.labels(error_type='model_service').inc()
+        elapsed_time = time.time() - start_time
+        prediction_request_latency.labels(status="error").observe(elapsed_time)
         print(f"Error connecting to model service: {str(error)}")
         return jsonify({"error": "Failed to connect to model service"}), 500
     except Exception as error:
