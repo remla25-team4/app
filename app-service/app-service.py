@@ -16,7 +16,7 @@ spec.loader.exec_module(init_module)
 
 load_dotenv()
 
-app = Flask(__name__, static_folder='../app-frontend-version2/dist', static_url_path='')
+app = Flask(__name__, static_folder='../app-frontend/dist', static_url_path='')
 CORS(app)
 
 PORT = int(os.environ.get("PORT", 3001))

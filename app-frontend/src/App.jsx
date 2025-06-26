@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react'
 import InputReview from './Components/InputReview'
 import Reviews from './Components/Reviews'
+import reviewService from './Services/reviews'
 import Versions from './Components/Versions'
 import Feedback from './Components/Feedback'
-import reviewService from './Services/reviews'
 import './app.css'
 
 function App() {
   const [reviewText, setReviewText] = useState('')
   const [reviews, setReviews] = useState([])
-  const [versions, setVersions] = useState({})
   const [showFeedback, setShowFeedback] = useState(false)
   const [pageLoadTime, setPageLoadTime] = useState(null);
   
@@ -20,16 +19,12 @@ function App() {
       setReviews(allReviews)
     })
 
-    reviewService
-    .getVersions()
-    .then(allVersions => {
-      setVersions(allVersions)
-    })
     setPageLoadTime(Date.now());
   },[])
 
   const handleReviewText = (event) => {
     setReviewText(event.target.value)
+    console.log(reviewText)
   }
 
   const addReview = (event) => {
@@ -37,11 +32,10 @@ function App() {
     setShowFeedback(false);
 
     try{
-
       if (pageLoadTime) {
         const elapsedTime = {
           time: (Date.now() - pageLoadTime) / 1000,
-          version: "main"
+          version: "canary"
         };
         
         reviewService
@@ -74,29 +68,25 @@ function App() {
   }
 
   const handleFeedback = () => {
-    const review = reviews[reviews.length - 1]
-
+    const review = reviews[reviews.length - 1];
     reviewService
-    .sendFeedback(review)
-    .then(response => {
-      console.log(response)
-    })
+      .sendFeedback(review)
+      .then(response => {
+        console.log(response)
+      });
   }
 
   return (
     <>
-      <Versions
-      modelVersion={versions.modelVersion}
-      appVersion={versions.appVersion}
-      libVersion={versions.libVersion}/>
-      <div class="app-container">
-        <h1>Leave a Review!</h1>
-        <InputReview
-        onSubmit={addReview}
-        reviewText={reviewText} 
-        changeReviewText={handleReviewText}/>
-        <Reviews reviews={reviews}/>
-      </div>
+      <div className="app-container">
+      <h1>Leave a Review</h1>
+      <InputReview
+      onSubmit={addReview}
+      reviewText={reviewText} 
+      changeReviewText={handleReviewText}/>
+
+      <Reviews reviews={reviews}/>
+    </div>
       <Feedback onSubmit={handleFeedback} showFeedback={showFeedback}/>
     </>
   )
